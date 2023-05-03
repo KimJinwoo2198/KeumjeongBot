@@ -1,8 +1,7 @@
 import smtplib
-from email.message import EmailMessage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import os
+from keumjeong import email_password,email_id
 from jinja2 import Template
 
 def render_template(**data):
@@ -24,16 +23,10 @@ def mail_sender(number,code):
         msg['from']='KeumJeongHs<noreply@mycompany.com>'
         msg.attach(MIMEText(render_template(**data), 'html'))
 
-        user_id = 'kimjw2198@gmail.com'
-        password = 'pyppqczrmvwtumic'
-        # user_id = 'swmakers@keumjeong.hs.kr'
-        # password
-
         s = smtplib.SMTP('smtp.gmail.com', 587)
         s.starttls()
-        s.login(user_id, password)
+        s.login(email_id, email_password)
         s.sendmail('KeumJeongHs<noreply@mycompany.com>', f'{number}@keumjeong.hs.kr', msg.as_string())
-        s.quit()
         return 'success'
     except:
         return 'fail'

@@ -1,5 +1,4 @@
 import random
-import datetime
 import discord
 from discord.ext import commands
 from discord.commands import slash_command, Option
@@ -8,9 +7,10 @@ from keumjeong import LOGGER, color_code, DebugServer
 from keumjeong.utils.mail_sender import mail_sender
 
 dbclient = motor.motor_asyncio.AsyncIOMotorClient("mongodb://localhost:27017")
-db = dbclient.blacklist
-class code_check(discord.ui.Modal):
-    '''TaskModal'''
+db = dbclient.keumjeong
+
+class Student_Info_Modal(discord.ui.Modal):
+    '''EmailinfoModal'''
 
     def __init__(self, bot, *args, **kwargs) -> None:
         super().__init__(
@@ -19,67 +19,47 @@ class code_check(discord.ui.Modal):
                 placeholder="1101 홍길동",
                 required=True
             ),
-            title="Task Setting",
+            title="재학생 인증",
             *args,
             **kwargs)
         self.bot = bot
         self.color = color_code
-        self.code2 = None
+        self.student_id = None
+        self.interaction_msg = None
 
     async def callback(self, interaction: discord.Interaction):
-        '''Task Modal Callback'''
-        self.code2 = self.children[0].value
-        self.interactionmsg = await interaction.response.send_message(f'잠시만 기다려주세요.', ephemeral=True)
+        '''EmailinfoModal Callback'''
+        self.student_id = self.children[0].value
+        self.interaction_msg = await interaction.response.send_message('잠시만 기다려주세요..', ephemeral=True)
 
-class email_info(discord.ui.Modal):
-    '''TaskModal'''
-
-    def __init__(self, bot, *args, **kwargs) -> None:
-        super().__init__(
-            discord.ui.InputText(
-                label="학번과 이름을 입력해주세요.",
-                placeholder="1101 홍길동",
-                required=True
-            ),
-            title="Task Setting",
-            *args,
-            **kwargs)
-        self.bot = bot
-        self.color = color_code
-        self.number = None
-        self.interactionmsg = None
-
-    async def callback(self, interaction: discord.Interaction):
-        '''Task Modal Callback'''
-        self.number = self.children[0].value
-        self.interactionmsg = await interaction.response.send_message('잠시만 기다려주세요..', ephemeral=True)
-        
 class EmailVerifyButton(discord.ui.View):
     '''캡챠 버튼'''
 
     def __init__(self, bot):
         super().__init__(timeout=None)
-        self.persistent_views_added = False
         self.bot = bot
         self.color_code = color_code
 
     @discord.ui.button(label="재학생 인증", style=discord.ButtonStyle.primary, custom_id='email::verify')
     async def captcha(self, button, interaction: discord.Interaction):  # pylint: disable=W0613
-        t = False # 선생님 유무
-        email_modal = email_info(self.bot)
+        teacher = False # 선생님 유무
+        email_modal = Student_Info_Modal(self.bot)
         await interaction.response.send_modal(email_modal)
         await email_modal.wait()
 
-        if len(email_modal.number.split(" ")[0]) == 5 and 't' in email_modal.number.split(" ")[0]:
-            t=True
-            number2 = email_modal.number.split(" ")[0] # 선생님 메일
-            name = email_modal.number.split(" ")[1] # 선생님 이름
-        elif len(email_modal.number.split(" ")) >= 3 or len(email_modal.number.split(" ")) <= 1 or len(email_modal.number.split(" ")[0]) != 4 or len(email_modal.number.split(" ")[1]) >= 5 or len(email_modal.number.split(" ")[1]) <= 1: # 학번 제대로 입력했는지 확인
-            await email_modal.interactionmsg.edit_original_response(content='학번과 이름을 제대로 입력해주세요.')
+        interactionmsg = email_modal.interaction_msg
+        studentid = email_modal.student_id
+    
+        if len(studentid.split(" ")[0]) == 5 and 't' in studentid.split(" ")[0]:
+            teacher=True
+            number2 = studentid.split(" ")[0] # 선생님 메일
+            name = studentid.split(" ")[1] # 선생님 이름
+        elif len(studentid.split(" ")) >= 3 or len(studentid.split(" ")) <= 1 or len(studentid.split(" ")[0]) != 4 or len(studentid.split(" ")[1]) >= 5 or len(studentid.split(" ")[1]) <= 1: # 학번 제대로 입력했는지 확인
+            await interactionmsg.edit_original_response(content='학번과 이름을 제대로 입력해주세요.')
             return
         else:
-            number2 = email_modal.number.split(" ")[0] # 학번
-            name = email_modal.number.split(" ")[1] # 이름
+            number2 = studentid.split(" ")[0] # 학번
+            name = studentid.split(" ")[1] # 이름
 
         grade = list(number2)[0]
         if grade == '1':
@@ -89,41 +69,38 @@ class EmailVerifyButton(discord.ui.View):
         elif grade == '3':
             grade_r = 1097728026051092497
         else:
-            await email_modal.interactionmsg.edit_original_response(content="인증에 실패하셨습니다.", embed=None, view=None)
+            await interactionmsg.edit_original_response(content="인증에 실패하셨습니다.", embed=None, view=None)
             
-        c_list = [] # 코드 생성
-        code = str(random.randint(10000, 99999)) # 알맞는 코드
-        c_list.append(code)
+        code = str(random.randint(10000, 99999)) # 코드 생성
         r_code = mail_sender(number2,code) # 코드 메일 전송
 
         if r_code == 'success': # 메일 전송 성공 시
-
             async def check(interaction):
-                await interaction.response.send_message('입력 중....', ephemeral=True, delete_after = 0)
                 global MSG
-                type = interaction.custom_id.split("-")[1]
+                await interaction.response.send_message('입력 중....', ephemeral=True, delete_after = 0)
+                inputtype = interaction.custom_id.split("-")[1]
                 code2 = MSG.embeds[0].to_dict()["description"].split("\n ")[-1].replace("```","").replace("-","").replace(" ","")
 
-                if type=="del" and len(code) > 0: # Backspace 버튼 처리
+                if inputtype=="del" and len(code) > 0: # Backspace 버튼 처리
                     result = code2[:-1]
-                elif type=="clear" and len(code) > 0: # 클리어 버튼 처리
+                elif inputtype=="clear" and len(code) > 0: # 클리어 버튼 처리
                     result = ''
-                elif type!="del": # 일반 버튼 처리
-                    result = code2 + type
+                elif inputtype!="del": # 일반 버튼 처리
+                    result = code2 + inputtype
                 else:
-                    await email_modal.interactionmsg.edit_original_response()
+                    await interactionmsg.edit_original_response()
                     return
                 
                 if len(result) == 5:
-                    realCode=button_d.custom_id.split("-")[2]
-                    if result==realCode:
-                        await email_modal.interactionmsg.edit_original_response(content="인증이 완료되었습니다.", embed=None,view=None)
+                    realcode=button_d.custom_id.split("-")[2]
+                    if result==realcode:
+                        await interactionmsg.edit_original_response(content="인증이 완료되었습니다.", embed=None,view=None)
                     else:
-                        await email_modal.interactionmsg.edit_original_response(content="인증에 실패하셨습니다.", embed=None,view=None)
+                        await interactionmsg.edit_original_response(content="인증에 실패하셨습니다.", embed=None,view=None)
                 else:
-                    MSG = await email_modal.interactionmsg.edit_original_response(
+                    MSG = await interactionmsg.edit_original_response(
                         embed = discord.Embed(title="재학생 인증",description=f"`{number2}@keumjeong.hs.kr` 로 전송된 코드가 적힌 버튼을 눌러주세요.\n\n```\n - {result}```",color=color_code))
-            
+
             view = discord.ui.View()
             button_c = discord.ui.Button(style=discord.ButtonStyle.red,label='Clear',custom_id="captcha-clear",row=3)
             button_0 = discord.ui.Button(style=discord.ButtonStyle.blurple,emoji="\U00000030\U0000FE0F\U000020E3",custom_id="captcha-0",row=3)
@@ -164,25 +141,29 @@ class EmailVerifyButton(discord.ui.View):
 
             global MSG
             embed = discord.Embed(title='재학생 인증',description=f"`{number2}@keumjeong.hs.kr` 로 전송된 코드가 적힌 버튼을 눌러주세요.\n\n```\n -```",color=color_code)                
-            MSG = await email_modal.interactionmsg.edit_original_response(content=None,embed=embed, view=view)
+            MSG = await interactionmsg.edit_original_response(content=None,embed=embed, view=view)
         else: # 메일 전송 실패 시
-            await email_modal.interactionmsg.edit_original_response(content='현재는 이메일 인증을 시도하실 수 없습니다. 관리자에게 문의주세요.')
-        
+            await interactionmsg.edit_original_response(content='현재는 이메일 인증을 시도하실 수 없습니다. 관리자에게 문의주세요.')
 
-class captcha(commands.Cog):
+class studentverify(commands.Cog):
     '''메인 클래스'''
 
     def __init__(self, bot):
         self.bot = bot
 
     @slash_command(name='인증설정', DebugServer=DebugServer)
-    async def captcha(self, ctx, text: Option(str, description="임베드에 들어갈 설명을 입력해주세요.", required=True), channel: Option(discord.TextChannel, description="캡챠가 설정될 채널을 설정해주세요.", required=True)):
-        clanregister = discord.Embed(title="재학생 인증", description=text, color=color_code)
-        a = await self.bot.get_channel(channel.id).send(embed=clanregister, view=EmailVerifyButton(self.bot))
-        a = str(a.id)
-        cha = str(channel.id)
-        text = str(text)
-        db.captcha.insert_one({"channel": cha, "message": a, "description": text})
+    async def captcha(self, ctx,
+                      text: Option(str, 
+                                   description="임베드에 들어갈 설명을 입력해주세요.",
+                                   required=True),
+                      channel: Option(discord.TextChannel, 
+                                      description="캡챠가 설정될 채널을 설정해주세요.",
+                                      required=True)):
+        '''Verify Setting'''
+        studentverify_setting = discord.Embed(title="재학생 인증", description=text, color=color_code)
+        messgae_id = await self.bot.get_channel(channel.id).send(embed=studentverify_setting, 
+                                                                 view=EmailVerifyButton(self.bot))
+        db.captcha.insert_one({"channel": channel.id, "message": messgae_id, "description": text})
         await ctx.respond(f'{channel.mention} 설정 완료')
 
     @commands.Cog.listener()
@@ -192,8 +173,7 @@ class captcha(commands.Cog):
         await member.add_roles(role)
         await member.edit(nick='미인증 학생')
 
-
 def setup(bot):
     '''cogs setup 함수'''
-    bot.add_cog(captcha(bot))
-    LOGGER.info('Email loaded!')
+    bot.add_cog(studentverify(bot))
+    LOGGER.info('StudentVerify loaded!')

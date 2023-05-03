@@ -18,6 +18,8 @@ BOT_TAG = Config.BOT_TAG
 BOT_ID = Config.BOT_ID
 color_code = Config.color_code
 error_cc = Config.error_cc
+email_password = Config.email_password
+email_id = Config.email_id
 
 EXTENSIONS = []
 for file in os.listdir("keumjeong/cogs"):

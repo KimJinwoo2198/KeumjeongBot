@@ -3,29 +3,11 @@
 '''
 import discord
 from discord.ext import commands
-from keumjeong import LOGGER, TOKEN, EXTENSIONS, BOT_NAME, BOT_TAG
+from keumjeong import LOGGER, TOKEN, EXTENSIONS, BOT_NAME, BOT_TAG, email_password, email_id
 import sys
 from keumjeong.cogs.email import EmailVerifyButton
-# from oauth2client.service_account import ServiceAccountCredentials
-# import gspread
 
-# scope = [
-# 'https://spreadsheets.google.com/feeds',
-# 'https://www.googleapis.com/auth/drive',
-# ]
-# json_file_name = './key.json'
-# credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file_name, scope)
-# gc = gspread.authorize(credentials)
-# spreadsheet_url = 'https://docs.google.com/spreadsheets/d/19Eimpldlq-9Wi52BY_bE-z0jTvq0H1gcygFWKL_jHDY/edit#gid=0'
-# doc = gc.open_by_url(spreadsheet_url)
-# worksheet = doc.worksheet('Sheet1')
-#gs = gc.create('새로운 테스트')
-#worksheet = gs.add_worksheet(title='시트1', rows='1', cols='1')
-#gs.share('kimjw2198@gmail.com', perm_type='user', role='writer')
-# list_of_lists = worksheet.get_all_values()
-# print(list_of_lists)
-
-class timecheckbot(commands.AutoShardedBot):
+class keumjeongbot(commands.AutoShardedBot):
     '''Main Class'''
 
     def __init__(self):
@@ -48,7 +30,6 @@ class timecheckbot(commands.AutoShardedBot):
 
 
 intents = discord.Intents.all()
-#intents.guilds = True
 
-bot = timecheckbot()
+bot = keumjeongbot()
 bot.run(TOKEN)
