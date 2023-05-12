@@ -5,6 +5,7 @@ from discord.commands import slash_command, Option
 import motor.motor_asyncio
 from keumjeong import LOGGER, color_code, DebugServer
 from keumjeong.utils.mail_sender import mail_sender
+import datetime
 
 dbclient = motor.motor_asyncio.AsyncIOMotorClient("mongodb://localhost:27017")
 db = dbclient.keumjeong
@@ -95,6 +96,23 @@ class EmailVerifyButton(discord.ui.View):
                     realcode=button_d.custom_id.split("-")[2]
                     if result==realcode:
                         await interactionmsg.edit_original_response(content="인증이 완료되었습니다.", embed=None,view=None)
+                        if teacher == False:
+                            role = interaction.guild.get_role(grade_r)
+                            role2 = interaction.guild.get_role(1097728080811917322)
+                            await interaction.user.add_roles(role)
+                            await interaction.user.remove_roles(role2)
+                            await interaction.user.edit(nick=number2)
+                            await interactionmsg.edit_original_response(content="인증이 완료되었습니다.", embed=None,view=None)
+                            db.user_data.insert_one({"number": number2, "name": name, "date": datetime.datetime.now()}) # date 는 인증시각
+                        elif teacher == True:
+                            role = interaction.guild.get_role(1097727933298245673)
+                            role2 = interaction.guild.get_role(1097728080811917322)
+                            await interaction.user.add_roles(role)
+                            await interaction.user.remove_roles(role2)
+                            await interaction.user.edit(nick=number2.split(" ")[1])
+                            await interactionmsg.edit_original_response(content="인증이 완료되었습니다.", embed=None,view=None)
+                            db.user_data.insert_one({"number": number2, "name": name, "date": datetime.datetime.now()}) # date 는 인증시각
+
                     else:
                         await interactionmsg.edit_original_response(content="인증에 실패하셨습니다.", embed=None,view=None)
                 else:
@@ -145,7 +163,7 @@ class EmailVerifyButton(discord.ui.View):
         else: # 메일 전송 실패 시
             await interactionmsg.edit_original_response(content='현재는 이메일 인증을 시도하실 수 없습니다. 관리자에게 문의주세요.')
 
-class studentverify(commands.Cog):
+class StudentVerify(commands.Cog):
     '''메인 클래스'''
 
     def __init__(self, bot):
@@ -163,7 +181,7 @@ class studentverify(commands.Cog):
         studentverify_setting = discord.Embed(title="재학생 인증", description=text, color=color_code)
         messgae_id = await self.bot.get_channel(channel.id).send(embed=studentverify_setting, 
                                                                  view=EmailVerifyButton(self.bot))
-        db.captcha.insert_one({"channel": channel.id, "message": messgae_id, "description": text})
+        db.verify.insert_one({"channel": channel.id, "message": messgae_id, "description": text})
         await ctx.respond(f'{channel.mention} 설정 완료')
 
     @commands.Cog.listener()
@@ -175,5 +193,5 @@ class studentverify(commands.Cog):
 
 def setup(bot):
     '''cogs setup 함수'''
-    bot.add_cog(studentverify(bot))
+    bot.add_cog(StudentVerify(bot))
     LOGGER.info('StudentVerify loaded!')
